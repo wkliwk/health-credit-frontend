@@ -2,6 +2,7 @@ import { Outlet, Link as RouterLink } from 'react-router-dom'
 import { AppBar, Box, Button, Container, IconButton, Toolbar, Tooltip, Typography } from '@mui/material'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import FolderIcon from '@mui/icons-material/Folder'
+import ShareIcon from '@mui/icons-material/Share'
 import Brightness4Icon from '@mui/icons-material/Brightness4'
 import Brightness7Icon from '@mui/icons-material/Brightness7'
 import LogoutIcon from '@mui/icons-material/Logout'
@@ -29,6 +30,9 @@ function Layout() {
           </Button>
           <Button color="inherit" component={RouterLink} to="/documents" startIcon={<FolderIcon />}>
             Documents
+          </Button>
+          <Button color="inherit" component={RouterLink} to="/shares" startIcon={<ShareIcon />}>
+            Share
           </Button>
           <Tooltip title={mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
             <IconButton onClick={toggleTheme} color="inherit" aria-label="toggle theme">
