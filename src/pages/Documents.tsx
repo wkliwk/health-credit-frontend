@@ -1,123 +1,144 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react'
 import {
   Box,
   Typography,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-  IconButton,
   Alert,
-  Chip,
   CircularProgress,
-} from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import DescriptionIcon from '@mui/icons-material/Description';
-import ImageIcon from '@mui/icons-material/Image';
-import { listDocuments, deleteDocument, DocumentMeta } from '../services/documents';
+  Dialog,
+  DialogContent,
+  Button,
+  IconButton,
+} from '@mui/material'
+import DeleteIcon from '@mui/icons-material/Delete'
+import ShareIcon from '@mui/icons-material/Share'
+import CloseIcon from '@mui/icons-material/Close'
+import { useNavigate } from 'react-router-dom'
+import { listDocuments, deleteDocument, type DocumentMeta } from '../services/documents'
+import HealthCard from '../components/wallet/HealthCard'
+import TrustBadge from '../components/wallet/TrustBadge'
+import PageTransition from '../components/layout/PageTransition'
 
 export default function Documents() {
-  const [docs, setDocs] = useState<DocumentMeta[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const fetchDocs = async () => {
-    try {
-      setLoading(true);
-      const data = await listDocuments();
-      setDocs(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load documents');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [docs, setDocs] = useState<DocumentMeta[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [selectedDoc, setSelectedDoc] = useState<DocumentMeta | null>(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
-    fetchDocs();
-  }, []);
+    listDocuments()
+      .then(setDocs)
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load'))
+      .finally(() => setLoading(false))
+  }, [])
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteDocument(id);
-      setDocs((prev) => prev.filter((d) => d.id !== id));
+      await deleteDocument(id)
+      setDocs((prev) => prev.filter((d) => d.id !== id))
+      setSelectedDoc(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete');
+      setError(err instanceof Error ? err.message : 'Failed to delete')
     }
-  };
-
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const getIcon = (mimeType: string) => {
-    if (mimeType.startsWith('image/')) return <ImageIcon />;
-    return <DescriptionIcon />;
-  };
+  }
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
+        <CircularProgress sx={{ color: '#6366F1' }} />
       </Box>
-    );
+    )
   }
 
   return (
-    <Box sx={{ maxWidth: 600, mx: 'auto' }}>
-      <Typography variant="h5" gutterBottom>
-        My Documents
-      </Typography>
+    <PageTransition>
+      <Box sx={{ maxWidth: 800, mx: 'auto' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+          <Typography variant="h1">My Documents</Typography>
+          <TrustBadge variant="encrypted" label={`${docs.length} encrypted`} size="md" />
+        </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      {docs.length === 0 ? (
-        <Alert severity="info">No documents yet. Upload your first health document.</Alert>
-      ) : (
-        <List>
-          {docs.map((doc) => (
-            <ListItem key={doc.id} divider>
-              <Box sx={{ mr: 2, color: 'text.secondary' }}>{getIcon(doc.mimeType)}</Box>
-              <ListItemText
-                primary={doc.fileName}
-                secondary={
-                  <Box component="span" sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                    <Chip label={formatSize(doc.size)} size="small" variant="outlined" />
-                    <Chip label={formatDate(doc.createdAt)} size="small" variant="outlined" />
-                    {doc.expiresAt && (
-                      <Chip
-                        label={`Expires ${formatDate(doc.expiresAt)}`}
-                        size="small"
-                        color="warning"
-                        variant="outlined"
-                      />
-                    )}
-                  </Box>
-                }
+        {docs.length === 0 ? (
+          <Box sx={{ textAlign: 'center', mt: 8 }}>
+            <Typography variant="h2" gutterBottom>No documents yet</Typography>
+            <Typography color="text.secondary" sx={{ mb: 3 }}>
+              Upload your first health document
+            </Typography>
+            <Button variant="contained" onClick={() => navigate('/upload')}>
+              Upload Document
+            </Button>
+          </Box>
+        ) : (
+          <Box sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
+            gap: 2,
+            justifyItems: 'center',
+          }}>
+            {docs.map((doc) => (
+              <HealthCard
+                key={doc.id}
+                fileName={doc.fileName}
+                date={doc.createdAt}
+                expiresAt={doc.expiresAt}
+                size="compact"
+                onTap={() => setSelectedDoc(doc)}
               />
-              <ListItemSecondaryAction>
-                <IconButton edge="end" onClick={() => handleDelete(doc.id)} color="error">
-                  <DeleteIcon />
-                </IconButton>
-              </ListItemSecondaryAction>
-            </ListItem>
-          ))}
-        </List>
-      )}
-    </Box>
-  );
+            ))}
+          </Box>
+        )}
+
+        {/* Document detail dialog */}
+        <Dialog
+          open={!!selectedDoc}
+          onClose={() => setSelectedDoc(null)}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{ sx: { backgroundColor: '#111827', overflow: 'visible' } }}
+        >
+          {selectedDoc && (
+            <DialogContent sx={{ p: 3, textAlign: 'center' }}>
+              <IconButton
+                onClick={() => setSelectedDoc(null)}
+                sx={{ position: 'absolute', top: 8, right: 8, color: '#94A3B8' }}
+              >
+                <CloseIcon />
+              </IconButton>
+
+              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
+                <HealthCard
+                  fileName={selectedDoc.fileName}
+                  date={selectedDoc.createdAt}
+                  expiresAt={selectedDoc.expiresAt}
+                  size="full"
+                />
+              </Box>
+
+              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                <Button
+                  variant="contained"
+                  startIcon={<ShareIcon />}
+                  onClick={() => navigate('/shares')}
+                  sx={{ borderRadius: 9999 }}
+                >
+                  Share
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => handleDelete(selectedDoc.id)}
+                  sx={{ borderRadius: 9999 }}
+                >
+                  Delete
+                </Button>
+              </Box>
+            </DialogContent>
+          )}
+        </Dialog>
+      </Box>
+    </PageTransition>
+  )
 }
