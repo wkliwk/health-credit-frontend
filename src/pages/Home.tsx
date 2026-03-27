@@ -8,12 +8,16 @@ import ShareIcon from '@mui/icons-material/Share'
 import HealthCard from '../components/wallet/HealthCard'
 import TrustBadge from '../components/wallet/TrustBadge'
 import PageTransition from '../components/layout/PageTransition'
+import OnboardingModal from '../components/onboarding/OnboardingModal'
 import { listDocuments, type DocumentMeta } from '../services/documents'
 import { useAuth } from '../context/AuthContext'
+
+const ONBOARDED_KEY = 'hc_onboarded'
 
 function Home() {
   const [docs, setDocs] = useState<DocumentMeta[]>([])
   const [loading, setLoading] = useState(true)
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -23,6 +27,17 @@ function Home() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (!localStorage.getItem(ONBOARDED_KEY)) {
+      setShowOnboarding(true)
+    }
+  }, [])
+
+  const handleOnboardingClose = () => {
+    localStorage.setItem(ONBOARDED_KEY, '1')
+    setShowOnboarding(false)
+  }
 
   const greeting = () => {
     const hour = new Date().getHours()
@@ -40,6 +55,8 @@ function Home() {
   }
 
   return (
+    <>
+    <OnboardingModal open={showOnboarding} onClose={handleOnboardingClose} />
     <PageTransition>
       <Box sx={{ maxWidth: 500, mx: 'auto' }}>
         {/* Greeting */}
@@ -110,6 +127,7 @@ function Home() {
         )}
       </Box>
     </PageTransition>
+    </>
   )
 }
 

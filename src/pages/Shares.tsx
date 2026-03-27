@@ -3,9 +3,6 @@ import {
   Box,
   Typography,
   Button,
-  Card,
-  CardContent,
-  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -16,27 +13,31 @@ import {
   MenuItem,
   TextField,
   Alert,
-  IconButton,
-  Tooltip,
   CircularProgress,
   Checkbox,
   List,
   ListItem,
   ListItemText,
   ListItemIcon,
+  Fab,
+  Snackbar,
 } from '@mui/material'
-import ContentCopyIcon from '@mui/icons-material/ContentCopy'
-import DeleteIcon from '@mui/icons-material/Delete'
-import ShareIcon from '@mui/icons-material/Share'
-import { listShares, createShare, revokeShare, ShareMeta } from '../services/shares'
-import { listDocuments, DocumentMeta } from '../services/documents'
+import AddIcon from '@mui/icons-material/Add'
+import { motion } from 'framer-motion'
+import { listShares, createShare, revokeShare, type ShareMeta } from '../services/shares'
+import { listDocuments, type DocumentMeta } from '../services/documents'
+import ShareCard from '../components/wallet/ShareCard'
+import PageTransition from '../components/layout/PageTransition'
+import { pageTransition } from '../constants/animations'
+
+const MotionBox = motion.create(Box)
 
 export default function Shares() {
   const [shares, setShares] = useState<ShareMeta[]>([])
   const [docs, setDocs] = useState<DocumentMeta[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [snackbar, setSnackbar] = useState('')
 
   // Create dialog state
   const [createOpen, setCreateOpen] = useState(false)
@@ -44,10 +45,10 @@ export default function Shares() {
   const [expiry, setExpiry] = useState('24h')
   const [maxViews, setMaxViews] = useState('')
   const [creating, setCreating] = useState(false)
-  const [newShareUrl, setNewShareUrl] = useState('')
+  const [newShare, setNewShare] = useState<ShareMeta | null>(null)
 
-  // Delete dialog state
-  const [deleteId, setDeleteId] = useState<string | null>(null)
+  // Revoke confirm dialog
+  const [revokeId, setRevokeId] = useState<string | null>(null)
 
   const fetchData = async () => {
     try {
@@ -66,6 +67,14 @@ export default function Shares() {
     fetchData()
   }, [])
 
+  const handleOpenCreate = () => {
+    setNewShare(null)
+    setSelectedDocs([])
+    setMaxViews('')
+    setExpiry('24h')
+    setCreateOpen(true)
+  }
+
   const handleCreate = async () => {
     if (!selectedDocs.length) return
     setCreating(true)
@@ -77,8 +86,7 @@ export default function Shares() {
         expiry,
         maxViews ? parseInt(maxViews, 10) : undefined,
       )
-      const fullUrl = `${window.location.origin}/shared/${share.token}`
-      setNewShareUrl(fullUrl)
+      setNewShare(share)
       setShares((prev) => [share, ...prev])
       setSelectedDocs([])
       setMaxViews('')
@@ -89,30 +97,16 @@ export default function Shares() {
     }
   }
 
-  const handleRevoke = async () => {
-    if (!deleteId) return
+  const handleRevokeConfirm = async () => {
+    if (!revokeId) return
     try {
-      await revokeShare(deleteId)
-      setShares((prev) => prev.filter((s) => s.id !== deleteId))
-      setSuccess('Share link revoked')
-      setDeleteId(null)
+      await revokeShare(revokeId)
+      setShares((prev) => prev.filter((s) => s.id !== revokeId))
+      setSnackbar('Share card revoked')
+      setRevokeId(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to revoke')
     }
-  }
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    setSuccess('Copied to clipboard')
-    setTimeout(() => setSuccess(''), 2000)
-  }
-
-  const formatExpiry = (dateStr: string) => {
-    const diff = new Date(dateStr).getTime() - Date.now()
-    if (diff <= 0) return 'Expired'
-    const hours = Math.floor(diff / (1000 * 60 * 60))
-    if (hours < 24) return `${hours}h remaining`
-    return `${Math.floor(hours / 24)}d remaining`
   }
 
   const toggleDoc = (id: string) => {
@@ -123,134 +117,282 @@ export default function Shares() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
+        <CircularProgress sx={{ color: '#6366F1' }} />
       </Box>
     )
   }
 
   return (
-    <Box sx={{ maxWidth: 700, mx: 'auto' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5">Share Links</Typography>
-        <Button
-          variant="contained"
-          startIcon={<ShareIcon />}
-          onClick={() => { setCreateOpen(true); setNewShareUrl('') }}
-          disabled={docs.length === 0}
-        >
-          Create Share Link
-        </Button>
-      </Box>
+    <PageTransition>
+      <Box sx={{ maxWidth: 860, mx: 'auto', pb: 10 }}>
+        {/* Header */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+          <Box>
+            <Typography variant="h1" sx={{ mb: 0.5 }}>
+              Your Cards
+            </Typography>
+            <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: '14px' }}>
+              {shares.length} active share{shares.length !== 1 ? 's' : ''}
+            </Typography>
+          </Box>
+        </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+        {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
-      {shares.length === 0 ? (
-        <Alert severity="info">No active share links. Create one to share your documents.</Alert>
-      ) : (
-        shares.map((share) => (
-          <Card key={share.id} variant="outlined" sx={{ mb: 2 }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
-                  /shared/{share.token.slice(0, 12)}...
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                  <Chip label={`${share.documentIds.length} doc(s)`} size="small" />
-                  <Chip label={formatExpiry(share.expiresAt)} size="small" color={
-                    new Date(share.expiresAt).getTime() - Date.now() < 3600000 ? 'error' : 'default'
-                  } />
-                  <Chip label={`${share.viewCount}${share.maxViews ? `/${share.maxViews}` : ''} views`} size="small" />
-                </Box>
-              </Box>
-              <Tooltip title="Copy link">
-                <IconButton onClick={() => copyToClipboard(`${window.location.origin}/shared/${share.token}`)}>
-                  <ContentCopyIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Revoke">
-                <IconButton color="error" onClick={() => setDeleteId(share.id)}>
-                  <DeleteIcon />
-                </IconButton>
-              </Tooltip>
-            </CardContent>
-          </Card>
-        ))
-      )}
-
-      {/* Create Share Dialog */}
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Create Share Link</DialogTitle>
-        <DialogContent>
-          {newShareUrl ? (
-            <Box sx={{ mt: 1 }}>
-              <Alert severity="success" sx={{ mb: 2 }}>Share link created!</Alert>
-              <TextField
-                fullWidth
-                value={newShareUrl}
-                InputProps={{ readOnly: true }}
-                sx={{ mb: 1 }}
-              />
-              <Button fullWidth variant="outlined" startIcon={<ContentCopyIcon />} onClick={() => copyToClipboard(newShareUrl)}>
-                Copy Link
-              </Button>
-            </Box>
-          ) : (
-            <>
-              <Typography variant="subtitle2" sx={{ mt: 1, mb: 1 }}>Select documents:</Typography>
-              <List dense>
-                {docs.map((doc) => (
-                  <ListItem key={doc.id} onClick={() => toggleDoc(doc.id)} sx={{ cursor: 'pointer' }}>
-                    <ListItemIcon>
-                      <Checkbox checked={selectedDocs.includes(doc.id)} />
-                    </ListItemIcon>
-                    <ListItemText primary={doc.fileName} />
-                  </ListItem>
-                ))}
-              </List>
-              <FormControl fullWidth sx={{ mt: 2, mb: 2 }}>
-                <InputLabel>Expiry</InputLabel>
-                <Select value={expiry} label="Expiry" onChange={(e) => setExpiry(e.target.value)}>
-                  <MenuItem value="1h">1 hour</MenuItem>
-                  <MenuItem value="24h">24 hours</MenuItem>
-                  <MenuItem value="7d">7 days</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField
-                fullWidth
-                label="Max views (optional)"
-                type="number"
-                value={maxViews}
-                onChange={(e) => setMaxViews(e.target.value)}
-                helperText="Leave empty for unlimited views"
-              />
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>
-            {newShareUrl ? 'Done' : 'Cancel'}
-          </Button>
-          {!newShareUrl && (
-            <Button variant="contained" onClick={handleCreate} disabled={!selectedDocs.length || creating}>
-              {creating ? 'Creating...' : 'Create'}
+        {/* Empty state */}
+        {shares.length === 0 ? (
+          <Box
+            sx={{
+              textAlign: 'center',
+              mt: 8,
+              p: 4,
+              borderRadius: '24px',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px dashed rgba(255,255,255,0.1)',
+            }}
+          >
+            <Typography variant="h2" sx={{ mb: 1, fontSize: '20px' }}>No share cards yet</Typography>
+            <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: '14px', mb: 3 }}>
+              Create a share card to give someone access to your health documents
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleOpenCreate}
+              disabled={docs.length === 0}
+              sx={{
+                background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+                borderRadius: 9999,
+                px: 3,
+                textTransform: 'none',
+              }}
+            >
+              Create Share Card
             </Button>
-          )}
-        </DialogActions>
-      </Dialog>
+            {docs.length === 0 && (
+              <Typography sx={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px', mt: 2 }}>
+                Upload a document first
+              </Typography>
+            )}
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+              gap: 3,
+            }}
+          >
+            {shares.map((share, i) => (
+              <MotionBox
+                key={share.id}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...pageTransition.transition, delay: i * 0.06 }}
+              >
+                <ShareCard
+                  shareId={share.id}
+                  token={share.token}
+                  expiresAt={share.expiresAt}
+                  viewCount={share.viewCount}
+                  maxViews={share.maxViews ?? undefined}
+                  documentCount={share.documentIds.length}
+                  onRevoke={(id) => setRevokeId(id)}
+                />
+              </MotionBox>
+            ))}
+          </Box>
+        )}
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteId} onClose={() => setDeleteId(null)}>
-        <DialogTitle>Revoke Share Link?</DialogTitle>
-        <DialogContent>
-          <Typography>This will permanently disable the share link. Recipients will no longer be able to access the shared documents.</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteId(null)}>Cancel</Button>
-          <Button color="error" variant="contained" onClick={handleRevoke}>Revoke</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        {/* FAB */}
+        {docs.length > 0 && (
+          <Fab
+            onClick={handleOpenCreate}
+            sx={{
+              position: 'fixed',
+              bottom: { xs: 80, sm: 32 },
+              right: { xs: 16, sm: 32 },
+              background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+              color: '#fff',
+              boxShadow: '0 4px 24px rgba(99,102,241,0.45)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #5558E3, #7C4FE0)',
+              },
+            }}
+          >
+            <AddIcon />
+          </Fab>
+        )}
+
+        {/* Create Share Dialog */}
+        <Dialog
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              background: 'rgba(15,18,30,0.97)',
+              backdropFilter: 'blur(24px)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '20px',
+            },
+          }}
+        >
+          <DialogTitle sx={{ color: '#fff', fontWeight: 700 }}>
+            {newShare ? 'Share Card Created' : 'Create Share Card'}
+          </DialogTitle>
+          <DialogContent>
+            {newShare ? (
+              <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px', textAlign: 'center', mb: 1 }}>
+                  Scan or copy the link below to share with someone.
+                </Typography>
+                <ShareCard
+                  shareId={newShare.id}
+                  token={newShare.token}
+                  expiresAt={newShare.expiresAt}
+                  viewCount={newShare.viewCount}
+                  maxViews={newShare.maxViews ?? undefined}
+                  documentCount={newShare.documentIds.length}
+                  onRevoke={(id) => {
+                    setRevokeId(id)
+                    setCreateOpen(false)
+                  }}
+                  startFlipped
+                />
+              </Box>
+            ) : (
+              <>
+                <Typography variant="subtitle2" sx={{ mt: 1, mb: 1, color: 'rgba(255,255,255,0.7)' }}>
+                  Select documents:
+                </Typography>
+                <List dense sx={{ mb: 1 }}>
+                  {docs.map((doc) => (
+                    <ListItem
+                      key={doc.id}
+                      onClick={() => toggleDoc(doc.id)}
+                      sx={{
+                        cursor: 'pointer',
+                        borderRadius: '8px',
+                        '&:hover': { background: 'rgba(255,255,255,0.04)' },
+                      }}
+                    >
+                      <ListItemIcon>
+                        <Checkbox
+                          checked={selectedDocs.includes(doc.id)}
+                          sx={{ color: 'rgba(255,255,255,0.3)', '&.Mui-checked': { color: '#6366F1' } }}
+                        />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={doc.fileName}
+                        primaryTypographyProps={{ sx: { color: 'rgba(255,255,255,0.85)', fontSize: '14px' } }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+                <FormControl fullWidth sx={{ mt: 1, mb: 2 }}>
+                  <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Expiry</InputLabel>
+                  <Select
+                    value={expiry}
+                    label="Expiry"
+                    onChange={(e) => setExpiry(e.target.value)}
+                    sx={{ color: '#fff', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' } }}
+                  >
+                    <MenuItem value="1h">1 hour</MenuItem>
+                    <MenuItem value="24h">24 hours</MenuItem>
+                    <MenuItem value="7d">7 days</MenuItem>
+                  </Select>
+                </FormControl>
+                <TextField
+                  fullWidth
+                  label="Max views (optional)"
+                  type="number"
+                  value={maxViews}
+                  onChange={(e) => setMaxViews(e.target.value)}
+                  helperText="Leave empty for unlimited views"
+                  inputProps={{ min: 1 }}
+                  sx={{
+                    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
+                    '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.5)' },
+                    '& .MuiInputBase-input': { color: '#fff' },
+                    '& .MuiFormHelperText-root': { color: 'rgba(255,255,255,0.35)' },
+                  }}
+                />
+              </>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button
+              onClick={() => setCreateOpen(false)}
+              sx={{ color: 'rgba(255,255,255,0.5)', textTransform: 'none' }}
+            >
+              {newShare ? 'Done' : 'Cancel'}
+            </Button>
+            {!newShare && (
+              <Button
+                variant="contained"
+                onClick={handleCreate}
+                disabled={!selectedDocs.length || creating}
+                sx={{
+                  background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+                  borderRadius: 9999,
+                  px: 3,
+                  textTransform: 'none',
+                }}
+              >
+                {creating ? 'Creating...' : 'Create'}
+              </Button>
+            )}
+          </DialogActions>
+        </Dialog>
+
+        {/* Revoke Confirm Dialog */}
+        <Dialog
+          open={!!revokeId}
+          onClose={() => setRevokeId(null)}
+          PaperProps={{
+            sx: {
+              background: 'rgba(15,18,30,0.97)',
+              backdropFilter: 'blur(24px)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '20px',
+            },
+          }}
+        >
+          <DialogTitle sx={{ color: '#fff' }}>Revoke Share Card?</DialogTitle>
+          <DialogContent>
+            <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
+              This will permanently disable the share link. Recipients will no longer be able to access the shared documents.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button
+              onClick={() => setRevokeId(null)}
+              sx={{ color: 'rgba(255,255,255,0.5)', textTransform: 'none' }}
+            >
+              Cancel
+            </Button>
+            <Button
+              color="error"
+              variant="contained"
+              onClick={handleRevokeConfirm}
+              sx={{ borderRadius: 9999, textTransform: 'none' }}
+            >
+              Revoke
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Snackbar
+          open={!!snackbar}
+          autoHideDuration={2500}
+          onClose={() => setSnackbar('')}
+          message={snackbar}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        />
+      </Box>
+    </PageTransition>
   )
 }
