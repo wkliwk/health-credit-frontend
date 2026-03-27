@@ -10,6 +10,8 @@ export interface DocumentMeta {
   fileName: string;
   mimeType: string;
   size: number;
+  encryptionSalt: string;
+  encryptionIV: string;
   createdAt: string;
   expiresAt: string | null;
 }
@@ -17,12 +19,15 @@ export interface DocumentMeta {
 export async function uploadDocument(
   encryptedBlob: ArrayBuffer,
   fileName: string,
-  _mimeType?: string,
+  salt: string,
+  iv: string,
   retentionDays?: number,
 ): Promise<DocumentMeta> {
   const formData = new FormData();
   formData.append('file', new Blob([encryptedBlob], { type: 'application/octet-stream' }), fileName);
   formData.append('fileName', fileName);
+  formData.append('salt', salt);
+  formData.append('iv', iv);
   if (retentionDays) {
     formData.append('retentionDays', String(retentionDays));
   }
