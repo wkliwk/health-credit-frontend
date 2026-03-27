@@ -56,10 +56,10 @@ export default function Upload() {
         const file = files[i];
         setProgress(`Encrypting ${file.name}... (${i + 1}/${files.length})`);
 
-        const { encrypted } = await encryptFile(file, password);
+        const { encrypted, salt, iv } = await encryptFile(file, password);
 
         setProgress(`Uploading ${file.name}... (${i + 1}/${files.length})`);
-        await uploadDocument(encrypted, file.name, file.type);
+        await uploadDocument(encrypted, file.name, salt, iv);
       }
 
       setSuccess(`${files.length} document(s) encrypted and uploaded successfully.`);
