@@ -4,10 +4,13 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import FolderIcon from '@mui/icons-material/Folder'
 import Brightness4Icon from '@mui/icons-material/Brightness4'
 import Brightness7Icon from '@mui/icons-material/Brightness7'
+import LogoutIcon from '@mui/icons-material/Logout'
 import { useThemeContext } from '../context/ThemeContext'
+import { useAuth } from '../context/AuthContext'
 
 function Layout() {
   const { mode, toggleTheme } = useThemeContext()
+  const { logout, user } = useAuth()
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -32,6 +35,13 @@ function Layout() {
               {mode === 'light' ? <Brightness4Icon /> : <Brightness7Icon />}
             </IconButton>
           </Tooltip>
+          {user && (
+            <Tooltip title={`Logout (${user.email})`}>
+              <IconButton onClick={logout} color="inherit" aria-label="logout">
+                <LogoutIcon />
+              </IconButton>
+            </Tooltip>
+          )}
         </Toolbar>
       </AppBar>
       <Container component="main" sx={{ flex: 1, py: 4 }}>

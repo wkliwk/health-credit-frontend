@@ -1,16 +1,21 @@
 import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
+import PrivateRoute from './components/PrivateRoute'
 import Home from './pages/Home'
 import Upload from './pages/Upload'
 import Documents from './pages/Documents'
+import Login from './pages/Login'
+import Register from './pages/Register'
 
 function App() {
   return (
     <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
       <Route path="/" element={<Layout />}>
-        <Route index element={<Home />} />
-        <Route path="upload" element={<Upload />} />
-        <Route path="documents" element={<Documents />} />
+        <Route index element={<PrivateRoute><Home /></PrivateRoute>} />
+        <Route path="upload" element={<PrivateRoute><Upload /></PrivateRoute>} />
+        <Route path="documents" element={<PrivateRoute><Documents /></PrivateRoute>} />
       </Route>
     </Routes>
   )
