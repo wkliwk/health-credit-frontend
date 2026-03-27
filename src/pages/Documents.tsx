@@ -81,6 +81,7 @@ export default function Documents() {
               <HealthCard
                 key={doc.id}
                 fileName={doc.fileName}
+                documentType={doc.documentType}
                 date={doc.createdAt}
                 expiresAt={doc.expiresAt}
                 size="compact"
@@ -110,6 +111,7 @@ export default function Documents() {
               <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
                 <HealthCard
                   fileName={selectedDoc.fileName}
+                  documentType={selectedDoc.documentType}
                   date={selectedDoc.createdAt}
                   expiresAt={selectedDoc.expiresAt}
                   size="full"

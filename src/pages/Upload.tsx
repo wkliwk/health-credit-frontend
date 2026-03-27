@@ -9,15 +9,33 @@ import {
   Typography,
   Alert,
   Chip,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import LockIcon from '@mui/icons-material/Lock';
 import { encryptFile } from '../services/crypto';
 import { uploadDocument } from '../services/documents';
+import {
+  type DocumentType,
+  CARD_ICONS,
+  DOCUMENT_TYPE_LABELS,
+} from '../constants/gradients';
+
+const DOCUMENT_TYPES: DocumentType[] = [
+  'STI_PANEL',
+  'HIV',
+  'STI_PARTIAL',
+  'HEPATITIS',
+  'VACCINE',
+  'BLOOD_WORK',
+  'OTHER',
+];
 
 export default function Upload() {
   const [files, setFiles] = useState<File[]>([]);
   const [password, setPassword] = useState('');
+  const [documentType, setDocumentType] = useState<DocumentType>('OTHER');
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
@@ -44,6 +62,13 @@ export default function Upload() {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleTypeChange = (_: React.MouseEvent<HTMLElement>, value: DocumentType | null) => {
+    // Prevent deselecting — always keep a type selected
+    if (value !== null) {
+      setDocumentType(value);
+    }
+  };
+
   const handleUpload = async () => {
     if (!files.length || !password) return;
 
@@ -59,12 +84,13 @@ export default function Upload() {
         const { encrypted, salt, iv } = await encryptFile(file, password);
 
         setProgress(`Uploading ${file.name}... (${i + 1}/${files.length})`);
-        await uploadDocument(encrypted, file.name, salt, iv);
+        await uploadDocument(encrypted, file.name, salt, iv, documentType);
       }
 
       setSuccess(`${files.length} document(s) encrypted and uploaded successfully.`);
       setFiles([]);
       setPassword('');
+      setDocumentType('OTHER');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
@@ -151,6 +177,65 @@ export default function Upload() {
           ))}
         </Box>
       )}
+
+      {/* Document type selector */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle2" gutterBottom>
+          Document Type
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+          Choose the type that best describes your document.
+        </Typography>
+        <ToggleButtonGroup
+          value={documentType}
+          exclusive
+          onChange={handleTypeChange}
+          aria-label="document type"
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 1,
+            '& .MuiToggleButtonGroup-grouped': {
+              border: '1px solid rgba(255,255,255,0.1) !important',
+              borderRadius: '8px !important',
+              mx: 0,
+            },
+          }}
+        >
+          {DOCUMENT_TYPES.map((type) => (
+            <ToggleButton
+              key={type}
+              value={type}
+              aria-label={DOCUMENT_TYPE_LABELS[type]}
+              sx={{
+                px: 1.5,
+                py: 0.75,
+                color: 'text.secondary',
+                fontSize: '13px',
+                fontWeight: 500,
+                textTransform: 'none',
+                backgroundColor: 'rgba(255,255,255,0.03)',
+                '&.Mui-selected': {
+                  backgroundColor: 'rgba(99,102,241,0.18)',
+                  color: 'primary.light',
+                  borderColor: 'primary.main !important',
+                  '&:hover': {
+                    backgroundColor: 'rgba(99,102,241,0.25)',
+                  },
+                },
+                '&:hover': {
+                  backgroundColor: 'rgba(255,255,255,0.06)',
+                },
+              }}
+            >
+              <Box component="span" sx={{ mr: 0.75, fontSize: '16px', lineHeight: 1 }}>
+                {CARD_ICONS[type]}
+              </Box>
+              {DOCUMENT_TYPE_LABELS[type]}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+      </Box>
 
       <TextField
         fullWidth

@@ -1,3 +1,5 @@
+import type { DocumentType } from '../constants/gradients';
+
 const BASE_URL = (import.meta as ImportMeta & { env: Record<string, string> }).env.VITE_API_URL;
 
 function getAuthHeaders(): HeadersInit {
@@ -14,6 +16,7 @@ export interface DocumentMeta {
   encryptionIV: string;
   createdAt: string;
   expiresAt: string | null;
+  documentType?: DocumentType;
 }
 
 export async function uploadDocument(
@@ -21,6 +24,7 @@ export async function uploadDocument(
   fileName: string,
   salt: string,
   iv: string,
+  documentType: DocumentType = 'OTHER',
   retentionDays?: number,
 ): Promise<DocumentMeta> {
   const formData = new FormData();
@@ -28,6 +32,7 @@ export async function uploadDocument(
   formData.append('fileName', fileName);
   formData.append('salt', salt);
   formData.append('iv', iv);
+  formData.append('documentType', documentType);
   if (retentionDays) {
     formData.append('retentionDays', String(retentionDays));
   }

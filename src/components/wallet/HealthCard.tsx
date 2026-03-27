@@ -1,6 +1,12 @@
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, Chip } from '@mui/material'
 import { motion } from 'framer-motion'
-import { CARD_GRADIENTS, CARD_ICONS, type DocumentType, detectDocumentType } from '../../constants/gradients'
+import {
+  CARD_GRADIENTS,
+  CARD_ICONS,
+  DOCUMENT_TYPE_LABELS,
+  type DocumentType,
+  detectDocumentType,
+} from '../../constants/gradients'
 import { cardHover, cardTap } from '../../constants/animations'
 import TrustBadge from './TrustBadge'
 
@@ -27,9 +33,11 @@ export default function HealthCard({
   onTap,
   selected,
 }: HealthCardProps) {
-  const type = documentType || detectDocumentType(fileName)
+  // Prefer explicit documentType from API response; fall back to filename detection for old docs
+  const type: DocumentType = documentType ?? detectDocumentType(fileName)
   const gradient = CARD_GRADIENTS[type]
   const icon = CARD_ICONS[type]
+  const label = DOCUMENT_TYPE_LABELS[type]
   const height = size === 'compact' ? 200 : 260
 
   const formatDate = (d: string) =>
@@ -85,7 +93,7 @@ export default function HealthCard({
             variant="overline"
             sx={{ color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}
           >
-            {type}
+            {label}
           </Typography>
         </Box>
         {encrypted && <TrustBadge variant="encrypted" size="sm" />}
@@ -109,9 +117,28 @@ export default function HealthCard({
 
       {/* Bottom row */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-          {formatDate(date)}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+            {formatDate(date)}
+          </Typography>
+          {/* Type badge — shown for all non-OTHER docs as a secondary label */}
+          {type !== 'OTHER' && (
+            <Chip
+              label={label}
+              size="small"
+              sx={{
+                height: 18,
+                fontSize: '10px',
+                fontWeight: 600,
+                backgroundColor: 'rgba(0,0,0,0.25)',
+                color: 'rgba(255,255,255,0.75)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                backdropFilter: 'blur(4px)',
+                '& .MuiChip-label': { px: 1 },
+              }}
+            />
+          )}
+        </Box>
         {expiresAt && (
           <TrustBadge variant="expires" label={getExpiryLabel() || undefined} size="sm" />
         )}
