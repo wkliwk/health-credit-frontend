@@ -30,6 +30,7 @@ export interface ShareAccess {
   documents: SharedDocument[]
   viewCount: number
   expiresAt: string
+  maxViews: number | null
 }
 
 export async function createShare(

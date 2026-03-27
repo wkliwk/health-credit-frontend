@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   Box,
@@ -12,24 +12,20 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
 import LockIcon from '@mui/icons-material/Lock'
-import ShieldIcon from '@mui/icons-material/Shield'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
-import VisibilityIcon from '@mui/icons-material/Visibility'
+import GppBadIcon from '@mui/icons-material/GppBad'
 import { accessShare, downloadSharedDocument, type ShareAccess, type SharedDocument } from '../services/shares'
 import { decryptFile } from '../services/crypto'
 import { detectDocumentType, CARD_GRADIENTS, CARD_ICONS } from '../constants/gradients'
 import theme from '../theme'
+import TrustHeader from '../components/TrustHeader'
+import { getExpiryState } from '../components/ExpiryCountdown'
 
 const MotionBox = motion.create(Box)
 
-function getExpiryLabel(expiresAt: string): string {
-  const diff = new Date(expiresAt).getTime() - Date.now()
-  if (diff <= 0) return 'Expired'
-  const hours = Math.floor(diff / (1000 * 60 * 60))
-  if (hours < 1) return `${Math.floor(diff / 60000)}m remaining`
-  if (hours < 24) return `${hours}h remaining`
-  return `${Math.floor(hours / 24)}d remaining`
-}
+// ────────────────────────────────────────────────────────────
+// DocCardPreview
+// ────────────────────────────────────────────────────────────
 
 interface DocCardProps {
   doc: SharedDocument
@@ -85,44 +81,97 @@ function DocCardPreview({ doc }: DocCardProps) {
   )
 }
 
-interface TrustStripProps {
-  shareData: ShareAccess
-}
+// ────────────────────────────────────────────────────────────
+// Full-page error states
+// ────────────────────────────────────────────────────────────
 
-function TrustStrip({ shareData }: TrustStripProps) {
-  const expiryLabel = getExpiryLabel(shareData.expiresAt)
-  const items = [
-    { icon: LockIcon, label: 'End-to-end encrypted', color: '#6366F1' },
-    { icon: AccessTimeIcon, label: `Expires in ${expiryLabel}`, color: '#F59E0B' },
-    { icon: VisibilityIcon, label: `${shareData.viewCount} view${shareData.viewCount !== 1 ? 's' : ''}`, color: '#3B82F6' },
-  ]
-
+function ExpiredState() {
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center' }}>
-      {items.map(({ icon: Icon, label, color }) => (
-        <Box
-          key={label}
-          sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 0.75,
-            px: 1.5,
-            py: 0.5,
-            borderRadius: 9999,
-            backgroundColor: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            backdropFilter: 'blur(8px)',
-          }}
-        >
-          <Icon sx={{ fontSize: 13, color }} />
-          <Typography sx={{ fontSize: '11px', fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}>
-            {label}
-          </Typography>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#0A0E1A',
+        p: 3,
+      }}
+    >
+      <MotionBox
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        sx={{
+          maxWidth: 400,
+          width: '100%',
+          textAlign: 'center',
+          p: 4,
+          borderRadius: '24px',
+          background: 'rgba(239,68,68,0.08)',
+          border: '1px solid rgba(239,68,68,0.2)',
+        }}
+      >
+        <Box sx={{ mb: 2 }}>
+          <AccessTimeIcon sx={{ fontSize: 52, color: '#EF4444' }} />
         </Box>
-      ))}
+        <Typography variant="h2" sx={{ color: '#fff', mb: 1.5, fontSize: '20px', fontWeight: 700 }}>
+          This link has expired
+        </Typography>
+        <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: '14px', lineHeight: 1.6 }}>
+          Request a new link from the sender.
+        </Typography>
+      </MotionBox>
     </Box>
   )
 }
+
+interface NotFoundStateProps {
+  message: string
+}
+
+function NotFoundState({ message }: NotFoundStateProps) {
+  return (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#0A0E1A',
+        p: 3,
+      }}
+    >
+      <MotionBox
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        sx={{
+          maxWidth: 400,
+          width: '100%',
+          textAlign: 'center',
+          p: 4,
+          borderRadius: '24px',
+          background: 'rgba(239,68,68,0.08)',
+          border: '1px solid rgba(239,68,68,0.2)',
+        }}
+      >
+        <Box sx={{ mb: 2 }}>
+          <GppBadIcon sx={{ fontSize: 52, color: '#EF4444' }} />
+        </Box>
+        <Typography variant="h2" sx={{ color: '#fff', mb: 1.5, fontSize: '20px', fontWeight: 700 }}>
+          Link not found or revoked
+        </Typography>
+        <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: '14px', lineHeight: 1.6 }}>
+          {message}
+        </Typography>
+      </MotionBox>
+    </Box>
+  )
+}
+
+// ────────────────────────────────────────────────────────────
+// SharedViewInner
+// ────────────────────────────────────────────────────────────
 
 function SharedViewInner() {
   const { token } = useParams<{ token: string }>()
@@ -133,6 +182,8 @@ function SharedViewInner() {
   const [decrypting, setDecrypting] = useState(false)
   const [decryptedFiles, setDecryptedFiles] = useState<Map<string, string>>(new Map())
   const [decryptError, setDecryptError] = useState('')
+  const [showDecryptSuccess, setShowDecryptSuccess] = useState(false)
+  const [clientExpired, setClientExpired] = useState(false)
 
   useEffect(() => {
     if (!token) return
@@ -141,6 +192,9 @@ function SharedViewInner() {
       try {
         const data = await accessShare(token)
         setShareData(data)
+        if (getExpiryState(data.expiresAt) === 'expired') {
+          setClientExpired(true)
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load share')
       } finally {
@@ -150,6 +204,10 @@ function SharedViewInner() {
 
     fetchShare()
   }, [token])
+
+  const handleExpired = useCallback(() => {
+    setClientExpired(true)
+  }, [])
 
   const handleDecrypt = async () => {
     if (!token || !shareData || !password) return
@@ -169,6 +227,8 @@ function SharedViewInner() {
       }
 
       setDecryptedFiles(newDecrypted)
+      setShowDecryptSuccess(true)
+      setTimeout(() => setShowDecryptSuccess(false), 2000)
     } catch {
       setDecryptError('Decryption failed. Please check your password.')
     } finally {
@@ -207,6 +267,7 @@ function SharedViewInner() {
     )
   }
 
+  // Loading
   if (loading) {
     return (
       <Box
@@ -223,42 +284,17 @@ function SharedViewInner() {
     )
   }
 
+  // Error (not found / revoked)
   if (error) {
-    return (
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#0A0E1A',
-          p: 3,
-        }}
-      >
-        <Box
-          sx={{
-            maxWidth: 400,
-            width: '100%',
-            textAlign: 'center',
-            p: 4,
-            borderRadius: '24px',
-            background: 'rgba(239,68,68,0.08)',
-            border: '1px solid rgba(239,68,68,0.2)',
-          }}
-        >
-          <Typography sx={{ fontSize: 48, mb: 2 }}>🔒</Typography>
-          <Typography variant="h2" sx={{ color: '#fff', mb: 1, fontSize: '20px' }}>
-            Unable to load share
-          </Typography>
-          <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>
-            {error}
-          </Typography>
-        </Box>
-      </Box>
-    )
+    const isExpiredError = error.toLowerCase().includes('expired')
+    if (isExpiredError) return <ExpiredState />
+    return <NotFoundState message={error} />
   }
 
   if (!shareData) return null
+
+  // Client-side expiry gate
+  if (clientExpired) return <ExpiredState />
 
   const unlocked = decryptedFiles.size > 0
 
@@ -272,54 +308,18 @@ function SharedViewInner() {
       }}
     >
       <Box sx={{ maxWidth: 600, mx: 'auto' }}>
-        {/* Header */}
-        <MotionBox
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          sx={{ textAlign: 'center', mb: 4, mt: 2 }}
-        >
-          <Box
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 1,
-              px: 2,
-              py: 0.75,
-              borderRadius: 9999,
-              background: 'rgba(99,102,241,0.1)',
-              border: '1px solid rgba(99,102,241,0.25)',
-              mb: 2,
-            }}
-          >
-            <ShieldIcon sx={{ fontSize: 14, color: '#6366F1' }} />
-            <Typography sx={{ fontSize: '11px', fontWeight: 600, color: '#6366F1', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              HC Trust
-            </Typography>
-          </Box>
-          <Typography variant="h1" sx={{ color: '#fff', fontSize: { xs: '22px', sm: '28px' }, mb: 0.5 }}>
-            Shared with you
-          </Typography>
-          <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: '14px' }}>
-            {shareData.documents.length} document{shareData.documents.length !== 1 ? 's' : ''} shared privately
-          </Typography>
-        </MotionBox>
-
-        {/* Trust strip */}
-        <MotionBox
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          sx={{ mb: 3 }}
-        >
-          <TrustStrip shareData={shareData} />
-        </MotionBox>
+        {/* Trust header — loads first, always visible */}
+        <TrustHeader
+          token={token ?? ''}
+          shareData={shareData}
+          onExpired={handleExpired}
+        />
 
         {/* Document card previews */}
         <MotionBox
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.15 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
           sx={{
             display: 'grid',
             gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
@@ -340,125 +340,178 @@ function SharedViewInner() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.25, delay: 0.2 }}
-              sx={{
-                p: 3,
-                borderRadius: '20px',
-                background: 'rgba(255,255,255,0.05)',
-                backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                mb: 3,
-              }}
+              transition={{ duration: 0.25, delay: 0.25 }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                <Box
-                  sx={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: '10px',
-                    background: 'rgba(99,102,241,0.15)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <LockIcon sx={{ fontSize: 18, color: '#6366F1' }} />
-                </Box>
-                <Box>
-                  <Typography sx={{ fontSize: '15px', fontWeight: 600, color: '#fff' }}>
-                    Enter decryption password
-                  </Typography>
-                  <Typography sx={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>
-                    Provided by the sender
-                  </Typography>
-                </Box>
-              </Box>
-
-              {decryptError && (
-                <Box
-                  sx={{
-                    mb: 2,
-                    p: 1.5,
-                    borderRadius: '10px',
-                    background: 'rgba(239,68,68,0.1)',
-                    border: '1px solid rgba(239,68,68,0.2)',
-                  }}
-                >
-                  <Typography sx={{ fontSize: '13px', color: '#EF4444' }}>
-                    {decryptError}
-                  </Typography>
-                </Box>
-              )}
-
-              <TextField
-                fullWidth
-                type="password"
-                placeholder="Enter password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleDecrypt() }}
-                disabled={decrypting}
-                sx={{ mb: 2 }}
-              />
-
-              <Button
-                variant="contained"
-                fullWidth
-                startIcon={decrypting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <LockOpenIcon />}
-                onClick={handleDecrypt}
-                disabled={!password || decrypting}
+              {/* Animated border pulse while waiting for input */}
+              <Box
+                component={motion.div}
+                animate={{
+                  boxShadow: password
+                    ? ['0 0 0 0px rgba(99,102,241,0)', '0 0 0 3px rgba(99,102,241,0.25)', '0 0 0 0px rgba(99,102,241,0)']
+                    : '0 0 0 0px rgba(99,102,241,0)',
+                }}
+                transition={password ? { repeat: Infinity, duration: 2, ease: 'easeInOut' } : {}}
                 sx={{
-                  background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
-                  borderRadius: 9999,
-                  py: 1.25,
-                  fontWeight: 600,
-                  fontSize: '14px',
-                  boxShadow: '0 4px 20px rgba(99,102,241,0.35)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #5558E3, #7C4FE0)',
-                  },
-                  '&.Mui-disabled': {
-                    background: 'rgba(255,255,255,0.06)',
-                    color: 'rgba(255,255,255,0.25)',
-                  },
+                  p: 3,
+                  borderRadius: '20px',
+                  background: 'rgba(255,255,255,0.05)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  mb: 3,
                 }}
               >
-                {decrypting ? 'Decrypting...' : 'Decrypt & View'}
-              </Button>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                  <Box
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: '10px',
+                      background: 'rgba(99,102,241,0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <LockIcon sx={{ fontSize: 18, color: '#6366F1' }} />
+                  </Box>
+                  <Box>
+                    <Typography sx={{ fontSize: '15px', fontWeight: 600, color: '#fff' }}>
+                      Enter decryption password
+                    </Typography>
+                    <Typography sx={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>
+                      Provided by the sender
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {decryptError && (
+                  <Box
+                    sx={{
+                      mb: 2,
+                      p: 1.5,
+                      borderRadius: '10px',
+                      background: 'rgba(239,68,68,0.1)',
+                      border: '1px solid rgba(239,68,68,0.2)',
+                    }}
+                  >
+                    <Typography sx={{ fontSize: '13px', color: '#EF4444' }}>
+                      {decryptError}
+                    </Typography>
+                  </Box>
+                )}
+
+                <TextField
+                  fullWidth
+                  type="password"
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleDecrypt() }}
+                  disabled={decrypting}
+                  sx={{ mb: 2 }}
+                />
+
+                <Button
+                  variant="contained"
+                  fullWidth
+                  startIcon={decrypting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <LockOpenIcon />}
+                  onClick={handleDecrypt}
+                  disabled={!password || decrypting}
+                  sx={{
+                    background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+                    borderRadius: 9999,
+                    py: 1.25,
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    boxShadow: '0 4px 20px rgba(99,102,241,0.35)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #5558E3, #7C4FE0)',
+                    },
+                    '&.Mui-disabled': {
+                      background: 'rgba(255,255,255,0.06)',
+                      color: 'rgba(255,255,255,0.25)',
+                    },
+                  }}
+                >
+                  {decrypting ? 'Decrypting...' : 'Decrypt & View'}
+                </Button>
+              </Box>
             </MotionBox>
           ) : (
             <MotionBox
               key="decrypted"
-              initial={{ opacity: 0, scale: 0.97 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2 }}
             >
-              {shareData.documents.map((doc) => (
-                <Box
-                  key={doc.id}
-                  sx={{
-                    mb: 2,
-                    p: 2.5,
-                    borderRadius: '20px',
-                    background: 'rgba(255,255,255,0.05)',
-                    backdropFilter: 'blur(20px)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                  }}
-                >
-                  <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#fff', mb: 2 }}>
-                    {doc.fileName}
-                  </Typography>
-                  {renderDocument(doc)}
-                </Box>
-              ))}
+              {/* Decrypt success indicator */}
+              <AnimatePresence>
+                {showDecryptSuccess && (
+                  <MotionBox
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.25 }}
+                    sx={{
+                      mb: 2,
+                      p: 1.5,
+                      borderRadius: '12px',
+                      background: 'rgba(16,185,129,0.1)',
+                      border: '1px solid rgba(16,185,129,0.25)',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#10B981' }}>
+                      Decrypted successfully
+                    </Typography>
+                  </MotionBox>
+                )}
+              </AnimatePresence>
+
+              {/* Staggered document cards */}
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  visible: { transition: { staggerChildren: 0.1 } },
+                  hidden: {},
+                }}
+              >
+                {shareData.documents.map((doc) => (
+                  <motion.div
+                    key={doc.id}
+                    variants={{
+                      hidden: { opacity: 0, y: 16 },
+                      visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        mb: 2,
+                        p: 2.5,
+                        borderRadius: '20px',
+                        background: 'rgba(255,255,255,0.05)',
+                        backdropFilter: 'blur(20px)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                      }}
+                    >
+                      <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#fff', mb: 2 }}>
+                        {doc.fileName}
+                      </Typography>
+                      {renderDocument(doc)}
+                    </Box>
+                  </motion.div>
+                ))}
+              </motion.div>
             </MotionBox>
           )}
         </AnimatePresence>
 
-        {/* Footer trust note */}
-        <Box sx={{ textAlign: 'center', mt: 3, mb: 2 }}>
+        {/* Share footer */}
+        <Box sx={{ textAlign: 'center', mt: 3, mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75 }}>
+          <LockIcon sx={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }} />
           <Typography sx={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)' }}>
-            Powered by HC Trust · Zero-knowledge encryption
+            Powered by Health Credit — privacy-first health sharing
           </Typography>
         </Box>
       </Box>
