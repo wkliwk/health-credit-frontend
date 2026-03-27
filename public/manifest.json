@@ -1,0 +1,16 @@
+{
+  "name": "Health Credit",
+  "short_name": "HealthCredit",
+  "description": "Private health document sharing — encrypted, expiring links.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1976d2",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ]
+}
