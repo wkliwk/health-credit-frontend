@@ -1,5 +1,7 @@
 import { Outlet, Link as RouterLink } from 'react-router-dom'
-import { AppBar, Box, Container, IconButton, Toolbar, Tooltip, Typography } from '@mui/material'
+import { AppBar, Box, Button, Container, IconButton, Toolbar, Tooltip, Typography } from '@mui/material'
+import CloudUploadIcon from '@mui/icons-material/CloudUpload'
+import FolderIcon from '@mui/icons-material/Folder'
 import Brightness4Icon from '@mui/icons-material/Brightness4'
 import Brightness7Icon from '@mui/icons-material/Brightness7'
 import { useThemeContext } from '../context/ThemeContext'
@@ -19,6 +21,12 @@ function Layout() {
           >
             Health Credit
           </Typography>
+          <Button color="inherit" component={RouterLink} to="/upload" startIcon={<CloudUploadIcon />}>
+            Upload
+          </Button>
+          <Button color="inherit" component={RouterLink} to="/documents" startIcon={<FolderIcon />}>
+            Documents
+          </Button>
           <Tooltip title={mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
             <IconButton onClick={toggleTheme} color="inherit" aria-label="toggle theme">
               {mode === 'light' ? <Brightness4Icon /> : <Brightness7Icon />}
