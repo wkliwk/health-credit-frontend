@@ -1,0 +1,3 @@
+{"date":"2026-03-27","decision":"Zero-knowledge encryption — client encrypts before upload, server never sees plaintext","reason":"Core privacy differentiator vs competitors like Zults"}
+{"date":"2026-03-27","decision":"Vite over CRA","reason":"Faster HMR, native ESM, smaller config surface — aligned with ship-fast ethos"}
+{"date":"2026-03-27","decision":"react-refresh/only-export-components disabled in ESLint","reason":"Context files legitimately export both a provider component and a custom hook — rule does not apply to this pattern"}
