@@ -1,0 +1,15 @@
+#!/bin/sh
+# Pre-push hook: run build:check before allowing a push.
+# Prevents TypeScript errors and Vite build failures from reaching Vercel.
+
+echo "Running build:check before push..."
+npm run build:check
+
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "ERROR: build:check failed. Fix the errors above before pushing."
+  exit 1
+fi
+
+echo "build:check passed. Proceeding with push."
+exit 0
